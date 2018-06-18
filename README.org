@@ -1,0 +1,21 @@
+* Extra Erlang modes
+
+This repository contains Emacs modes for various Erlang-related file
+formats.
+
+** archive-escript-zip
+
+This module lets you open escript files that consist of a zip archive
+with a prepended header.  Such files open in archive-mode, and you can
+open the individual files within the archive.
+
+** beam-file-mode
+
+This module attempts to display some useful information about beam
+files, including a rendering of the "abstract code" chunk into Erlang
+if present.
+
+** erlang-boot
+
+Erlang "boot" files are just an Erlang term encoded in the external
+term format.  Let's display the decoded term instead of binary data.
