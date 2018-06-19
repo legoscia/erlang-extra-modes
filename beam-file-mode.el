@@ -131,6 +131,30 @@
       (format "%d %s encoded atoms\nModule name: %s\n"
 	      count coding (aref beam-file-mode--atom-table 0)))))
 
+(defun beam-file-mode--handle-chunk-ExpT (beg end)
+  ;; checkdoc-params: (beg end)
+  "Handle exported functions chunk."
+  (catch 'export-chunk-error
+    (when (< (- end beg) 4)
+      (throw 'export-chunk-error
+	     (format "Export table chunk %d bytes long, expected at least 4" (- end beg))))
+    (let ((count (cdar (bindat-unpack '((:count u32)) (buffer-substring beg (+ 4 beg)))))
+	  exported)
+      (setq beg (+ 4 beg))
+      (dotimes (n count)
+	(when (> (+ beg 12) end)
+	  (throw 'export-chunk-error
+		 (format "Export table chunk too short, after %d entries\n" (1- n))))
+	(let* ((data (bindat-unpack '((:atom-index u32) (:arity u32) (:label :u32))
+				    (buffer-substring beg (+ beg 12))))
+	       (atom-index (cdr (assq :atom-index data)))
+	       (arity (cdr (assq :arity data))))
+	  (setq beg (+ beg 12))
+	  (push (format "%s/%d" (aref beam-file-mode--atom-table (1- atom-index)) arity)
+		exported)))
+      (format "%d exported functions:\n%s\n" count
+	      (mapconcat 'identity (nreverse exported) "\n")))))
+
 (defun beam-file-mode--handle-chunk-Dbgi (beg end)
   ;; checkdoc-params: (beg end)
   "Handle Dbgi chunks (abstract code since Erlang 20)."
