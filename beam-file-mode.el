@@ -86,24 +86,9 @@
 (defun beam-file-mode--binary-to-term (beg end)
   ;; checkdoc-params: (beg end)
   "Handle BEAM file chunks that are just an Erlang term."
-  (let ((temp-buffer (generate-new-buffer " *erlang-term*"))
-	(default-directory temporary-file-directory))
-    (unwind-protect
-	(let* ((coding-system-for-write 'binary)
-	       (exit-status
-		(call-process-region
-		 beg end
-		 "erl" nil temp-buffer nil
-		 "-noshell"
-		 "-eval"
-		 (format "{ok, X} = file:read(standard_io, %d), io:format(\"~p~n\", [binary_to_term(list_to_binary(X))])"
-			 (buffer-size))
-		 "-s" "erlang" "halt")))
-	  (if (eq exit-status 0)
-	      (with-current-buffer temp-buffer (buffer-string))
-	    (error "Term conversion failed with %S; %s"
-		   exit-status (with-current-buffer temp-buffer (buffer-string)))))
-      (kill-buffer temp-buffer))))
+  (beam-file-mode--erlang-output-to-string
+   "io:format(\"~p~n\", [binary_to_term(list_to_binary(X))])"
+   beg end))
 
 (fset 'beam-file-mode--handle-chunk-Attr 'beam-file-mode--binary-to-term)
 (fset 'beam-file-mode--handle-chunk-CInf 'beam-file-mode--binary-to-term)
@@ -111,18 +96,8 @@
 (defun beam-file-mode--handle-chunk-Dbgi (beg end)
   ;; checkdoc-params: (beg end)
   "Handle Dbgi chunks (abstract code since Erlang 20)."
-  (let ((temp-buffer (generate-new-buffer " *erlang-debuginfo*"))
-	(default-directory temporary-file-directory))
-    (unwind-protect
-	(let* ((coding-system-for-write 'binary)
-	       (exit-status
-		(call-process-region
-		 beg end
-		 "erl" nil temp-buffer nil
-		 "-noshell"
-		 "-eval"
-		 (format "{ok, X} = file:read(standard_io, %d),
-case catch binary_to_term(list_to_binary(X)) of
+  (beam-file-mode--erlang-output-to-string
+   "case catch binary_to_term(list_to_binary(X)) of
     {debug_info_v1, erl_abstract_code, Metadata} ->
         try erl_abstract_code:debug_info(erlang_v1, module_name, Metadata, []) of
             {ok, [_ | Forms]} ->
@@ -137,14 +112,30 @@ case catch binary_to_term(list_to_binary(X)) of
         io:format(\"~p~n\", [{unexpected_debug_info_module, Module, expected, erl_abstract_code}]);
     Other ->
         io:format(\"~p~n\", [Other])
-end" (buffer-size))
+end"
+   beg end))
+
+(defun beam-file-mode--erlang-output-to-string (script beg end)
+  "Run SCRIPT on the region between BEG and END, and return the output.
+SCRIPT is a piece of Erlang code.  It can access the region as a string
+in a variable called X."
+  (let ((temp-buffer (generate-new-buffer " *erlang-output*"))
+	(default-directory temporary-file-directory))
+    (unwind-protect
+	(let* ((coding-system-for-write 'binary)
+	       (exit-status
+		(call-process-region
+		 beg end
+		 "erl" nil temp-buffer nil
+		 "-noshell"
+		 "-eval"
+		 (concat
+		  (format "{ok, X} = file:read(standard_io, %d),\n" (- end beg))
+		  script)
 		 "-s" "erlang" "halt")))
 	  (if (eq exit-status 0)
-	      (with-current-buffer temp-buffer
-		;; (erlang-mode)
-		;; (font-lock-fontify-region (point-min) (point-max))
-		(buffer-string))
-	    (error "Debug info extraction failed with %S; %s"
+	      (with-current-buffer temp-buffer (buffer-string))
+	    (error "Erlang script failed with %S; %s"
 		   exit-status (with-current-buffer temp-buffer (buffer-string)))))
       (kill-buffer temp-buffer))))
 
