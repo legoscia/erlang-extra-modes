@@ -118,15 +118,17 @@ end"
 (defun beam-file-mode--handle-chunk-Abst (beg end)
   ;; checkdoc-params: (beg end)
   "Handle Abst chunks (abstract code up to Erlang 19)."
-  (beam-file-mode--erlang-output-to-string
-   "case catch binary_to_term(list_to_binary(X)) of
+  (if (= beg end)
+      "Empty abstract code section\n"
+    (beam-file-mode--erlang-output-to-string
+     "case catch binary_to_term(list_to_binary(X)) of
     {raw_abstract_v1, Forms} ->
         Src = erl_prettypr:format(erl_syntax:form_list(tl(Forms))),
         io:format(\"~s~n\", [Src]);
     Other ->
         io:format(\"This doesn't look like abstract code:~n~p~n\", [Other])
 end"
-   beg end))
+     beg end)))
 
 (defun beam-file-mode--erlang-output-to-string (script beg end)
   "Run SCRIPT on the region between BEG and END, and return the output.
