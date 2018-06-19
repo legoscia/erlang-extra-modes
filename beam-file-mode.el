@@ -30,6 +30,9 @@
 
 (require 'bindat)
 
+(defvar-local beam-file-mode--atom-table nil
+  "Vector containing atom table of beam file.")
+
 ;;;###autoload
 (add-to-list 'auto-mode-alist
 	     '("\\.beam\\'" . beam-file-mode))
@@ -92,6 +95,41 @@
 
 (fset 'beam-file-mode--handle-chunk-Attr 'beam-file-mode--binary-to-term)
 (fset 'beam-file-mode--handle-chunk-CInf 'beam-file-mode--binary-to-term)
+
+(defun beam-file-mode--handle-chunk-Atom (beg end)
+  ;; checkdoc-params: (beg end)
+  "Handle Latin-1 encoded atom table."
+  (beam-file-mode--handle-atom-table 'latin-1 beg end))
+
+(defun beam-file-mode--handle-chunk-AtU8 (beg end)
+  ;; checkdoc-params: (beg end)
+  "Handle UTF-8 encoded atom table."
+  (beam-file-mode--handle-atom-table 'utf-8 beg end))
+
+(defun beam-file-mode--handle-atom-table (coding beg end)
+  ;; checkdoc-params: (beg end)
+  "Handle atom table in coding system CODING."
+  (catch 'atom-chunk-error
+    (when (< (- end beg) 4)
+      (throw 'atom-chunk-error
+	     (format "Atom table chunk %d bytes long, expected at least 4" (- end beg))))
+    (let ((count (cdar (bindat-unpack '((:count u32)) (buffer-substring beg (+ 4 beg))))))
+      (setq beg (+ 4 beg))
+      (setq beam-file-mode--atom-table (make-vector count nil))
+      (dotimes (n count)
+	(when (>= beg end)
+	  (throw 'atom-chunk-error
+		 (format "Atom table chunk too short, after %d entries\n" (1- n))))
+	(let ((len (cdar (bindat-unpack '((:len u8)) (buffer-substring beg (1+ beg))))))
+	  (setq beg (1+ beg))
+	  (when (< (- end beg) len)
+	    (throw 'atom-chunk-error
+		   (format "Atom number %d goes outside atom table chunk\n" n)))
+	  (aset beam-file-mode--atom-table n
+		(decode-coding-string (buffer-substring beg (+ beg len)) coding))
+	  (setq beg (+ beg len))))
+      (format "%d %s encoded atoms\nModule name: %s\n"
+	      count coding (aref beam-file-mode--atom-table 0)))))
 
 (defun beam-file-mode--handle-chunk-Dbgi (beg end)
   ;; checkdoc-params: (beg end)
