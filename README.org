@@ -3,6 +3,9 @@
 This repository contains Emacs modes for various Erlang-related file
 formats.
 
+If you're using Emacs 25 or newer, you can install all the modules in
+one go by invoking M-x package-install-file on the current *directory*.
+
 ** archive-escript-zip
 
 This module lets you open escript files that consist of a zip archive
