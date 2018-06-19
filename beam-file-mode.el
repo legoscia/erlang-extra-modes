@@ -42,7 +42,10 @@
   ;; The file starts with "FOR1", a 32-bit big-endian length (which we
   ;; ignore), and "BEAM".
   (goto-char (point-min))
-  (unless (looking-at "FOR1....BEAM")
+  ;; "." doesn't match newlines, which might be a legitimate byte in
+  ;; the length.  Is there a nicer way to match an arbitrary byte than
+  ;; \(?:.\|\n\)?...
+  (unless (looking-at "FOR1\\(?:.\\|\n\\)\\{4\\}BEAM")
     (error "Not a BEAM file"))
   (goto-char (match-end 0))
   (overlay-put
@@ -52,7 +55,7 @@
   ;; identifier followed by a 32-bit big-endian length.  Chunks are
   ;; aligned to 4 bytes.
   (while (not (eobp))
-    (unless (looking-at "\\([A-Za-z0-9]\\{4\\}\\)\\(....\\)")
+    (unless (looking-at "\\([A-Za-z0-9]\\{4\\}\\)\\(\\(?:.\\|\n\\)\\{4\\}\\)")
       (error "Expected chunk header"))
     (let* ((id (match-string 1))
 	   (length (cdar (bindat-unpack '((:len u32)) (match-string 2))))
