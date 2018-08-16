@@ -192,6 +192,35 @@ end"
 end"
      beg end)))
 
+(defun beam-file-mode--handle-chunk-Docs (beg end)
+  ;; checkdoc-params: (beg end)
+  "Handle documentation chunk as per EEP 48."
+  (beam-file-mode--erlang-output-to-string "
+case binary_to_term(list_to_binary(X)) of
+    {docs_v1, Anno, BeamLanguage, Format, ModuleDoc, Metadata, Docs} ->
+        io:format(\"Documentation for ~s module written in ~s format.~n~n\", [BeamLanguage, Format]),
+        if is_atom(ModuleDoc) ->
+            io:format(\"Module documentation: ~s~n~n\", [ModuleDoc]);
+           is_map(ModuleDoc) ->
+            maps:map(fun(Language, Doc) -> io:format(\"In language '~s': ~ts~n~n\", [Language, Doc]) end, ModuleDoc)
+        end,
+        maps:map(fun(Key, Value) -> io:format(\"~p: ~p~n\", [Key, Value]) end, Metadata),
+        io:format(\"~n\"),
+        lists:foreach(
+          fun({{Kind, Name, Arity}, _Anno, Signature, EntryDoc, EntryMetadata}) ->
+              io:format(\"~s ~s/~b: ~ts~n~n\", [Kind, Name, Arity, << <<Sig/binary, \" \">> || Sig <- Signature >>]),
+              maps:map(fun(Key, Value) -> io:format(\"~p: ~p~n\", [Key, Value]) end, EntryMetadata),
+              io:format(\"~n\"),
+              if is_atom(EntryDoc) ->
+                  io:format(\"Entry documentation: ~s~n~n\", [EntryDoc]);
+                 is_map(EntryDoc) ->
+                  maps:map(fun(Language, Doc) -> io:format(\"In language '~s': ~ts~n~n\", [Language, Doc]) end, EntryDoc)
+              end,
+              io:format(\"~n\")
+          end, Docs)
+end"
+     beg end))
+
 (defun beam-file-mode--erlang-output-to-string (script beg end)
   "Run SCRIPT on the region between BEG and END, and return the output.
 SCRIPT is a piece of Erlang code.  It can access the region as a string
