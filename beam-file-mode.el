@@ -42,9 +42,18 @@
   "Major mode for BEAM files."
   (delete-all-overlays)
   (set-buffer-multibyte nil)
+  (goto-char (point-min))
+  ;; BEAM files can be gzip compressed, when compiled with the 'compressed' option.
+  ;; The code loader handles such files transparently.
+  ;; Let's check if the file is gzipped, with a 1F 8B magic number.
+  (when (looking-at "\x1f\x8b")
+    (unless (and (fboundp 'zlib-available-p) (zlib-available-p))
+      (error "This BEAM file is compressed, but Emacs is not built with zlib"))
+    (with-silent-modifications
+      (zlib-decompress-region (point-min) (point-max))))
   ;; The file starts with "FOR1", a 32-bit big-endian length (which we
   ;; ignore), and "BEAM".
-  (goto-char (point-min))
+  ;;
   ;; "." doesn't match newlines, which might be a legitimate byte in
   ;; the length.  Is there a nicer way to match an arbitrary byte than
   ;; \(?:.\|\n\)?...
