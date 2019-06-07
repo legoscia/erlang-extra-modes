@@ -38,7 +38,11 @@
   "'Summarize' callback for escript zip archives.
 See `archive-summarize'."
   (archive-escript-zip--narrow)
-  (archive-zip-summarize))
+  (prog1
+      (archive-zip-summarize)
+    ;; Widen the buffer, so that shebang / option lines before the ZIP
+    ;; archive become visible.
+    (widen)))
 
 (defun archive-escript-zip-extract (_archive name)
   "'Extract' callback for escript zip archives.
