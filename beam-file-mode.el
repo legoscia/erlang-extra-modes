@@ -230,6 +230,27 @@ case binary_to_term(list_to_binary(X)) of
 end"
      beg end))
 
+(defun beam-file-mode--handle-hipe (beg end chunk-name)
+  "Handle HiPE chunk."
+  (let ((chunk-name-archs
+         ;; from hipe_unified_loader.erl
+         '(("HA64" . "x86_64")
+           ("HARM" . "arm, v5, 32-bit")
+           ("HPPC" . "PowerPC, 32-bit")
+           ("HP64" . "ppc64")
+           ("HS8P" . "SPARC, V8+, 32-bit")
+           ("HX86" . "x86"))))
+    (format "HiPE compiled code for %s\n%s"
+            (or (cdr (assoc chunk-name chunk-name-archs)) "unknown architecture")
+            (beam-file-mode--erlang-output-to-string "
+[{Version, CheckSum} | _] = binary_to_term(list_to_binary(X)),
+io:format(\"Version: ~s~nCheckSum: ~w~n\", [Version, CheckSum])" beg end))))
+
+(dolist (chunk-name '("HA64" "HARM" "HPPC" "HP64" "HS8P" "HX86"))
+  (fset (intern (concat "beam-file-mode--handle-chunk-" chunk-name))
+        (lambda (beg end)
+          (beam-file-mode--handle-hipe beg end chunk-name))))
+
 (defun beam-file-mode--erlang-output-to-string (script beg end)
   "Run SCRIPT on the region between BEG and END, and return the output.
 SCRIPT is a piece of Erlang code.  It can access the region as a string
